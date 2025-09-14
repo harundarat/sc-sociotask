@@ -7,6 +7,8 @@ contract Task {
     error Task__InvalidOperator(address invalidOperator);
     error Task__InvalidRewardToken(address rewardToken);
     error Task__InvalidRewardAmount(uint256 rewardAmount);
+    error Task__AlreadyInitialized();
+    error Task__RewardAlreadyClaimed(address user);
 
     event RewardSent(
         address indexed receiver,
@@ -22,6 +24,8 @@ contract Task {
     uint256 private s_rewardClaimed;
     address private s_rewardToken;
     uint256 private s_rewardAmount;
+    bool private s_initialized = false;
+    mapping(address user => bool success) private s_succeededUsers;
 
     modifier onlyOperator() {
         if (msg.sender != s_operator) {
@@ -30,19 +34,22 @@ contract Task {
         _;
     }
 
-    constructor(
+    function initialize(
         string memory _title,
         address _operator,
         address _taskOwner,
         uint256 _campaignTarget,
         address _rewardToken,
         uint256 _rewardAmount
-    ) {
+    ) public {
         if (_rewardToken == address(0)) {
             revert Task__InvalidRewardToken(_rewardToken);
         }
         if (_rewardAmount == 0) {
             revert Task__InvalidRewardAmount(_rewardAmount);
+        }
+        if (s_initialized == true) {
+            revert Task__AlreadyInitialized();
         }
 
         s_title = _title;
@@ -51,10 +58,16 @@ contract Task {
         s_taskOwner = _taskOwner;
         s_rewardToken = _rewardToken;
         s_rewardAmount = _rewardAmount;
+        s_initialized = true;
     }
 
     function sendReward(address _receiver) public onlyOperator {
+        if (s_succeededUsers[_receiver] == true) {
+            revert Task__RewardAlreadyClaimed(_receiver);
+        }
+
         s_rewardClaimed += 1;
+        s_succeededUsers[_receiver] = true;
 
         IERC20(s_rewardToken).transfer(_receiver, s_rewardAmount);
 

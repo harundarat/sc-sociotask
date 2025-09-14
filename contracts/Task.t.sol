@@ -59,7 +59,8 @@ contract TaskTest is Test {
         mockToken = new MockERC20();
 
         // Deploy task contract
-        task = new Task(
+        task = new Task();
+        task.initialize(
             TASK_TITLE,
             OPERATOR,
             TASK_OWNER,
@@ -126,15 +127,43 @@ contract TaskTest is Test {
         task.sendReward(RECEIVER);
     }
 
-    function test_Constructor_RevertWhen_InvalidRewardToken() public {
-        // Act & Assert
+    function test_Initializer_RevertWhen_InitializeMoreThanOnce() public {
+        task = new Task();
+        task.initialize(
+            TASK_TITLE,
+            OPERATOR,
+            TASK_OWNER,
+            CAMPAIGN_TARGET,
+            address(mockToken),
+            REWARD_AMOUNT
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(Task.Task__AlreadyInitialized.selector)
+        );
+
+        // Initialize again
+        task.initialize(
+            TASK_TITLE,
+            OPERATOR,
+            TASK_OWNER,
+            CAMPAIGN_TARGET,
+            address(mockToken),
+            REWARD_AMOUNT
+        );
+    }
+
+    function test_Initializer_RevertWhen_InvalidRewardToken() public {
+        task = new Task();
+
         vm.expectRevert(
             abi.encodeWithSelector(
                 Task.Task__InvalidRewardToken.selector,
                 address(0)
             )
         );
-        new Task(
+
+        task.initialize(
             TASK_TITLE,
             OPERATOR,
             TASK_OWNER,
@@ -144,12 +173,14 @@ contract TaskTest is Test {
         );
     }
 
-    function test_Constructor_RevertWhen_InvalidRewardAmount() public {
-        // Act & Assert
+    function test_Initializer_RevertWhen_InvalidRewardAmount() public {
+        task = new Task();
+
         vm.expectRevert(
             abi.encodeWithSelector(Task.Task__InvalidRewardAmount.selector, 0)
         );
-        new Task(
+
+        task.initialize(
             TASK_TITLE,
             OPERATOR,
             TASK_OWNER,
@@ -157,6 +188,21 @@ contract TaskTest is Test {
             address(mockToken),
             0 // Invalid reward amount
         );
+    }
+
+    function test_SendReward_RevertWhen_RewardAlreadyClaimed() public {
+        // Arrange
+        vm.startPrank(OPERATOR);
+        task.sendReward(RECEIVER);
+
+        // Act & Assert
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Task.Task__RewardAlreadyClaimed.selector,
+                RECEIVER
+            )
+        );
+        task.sendReward(RECEIVER);
     }
 
     function test_SendReward_EmitsEvent() public {
