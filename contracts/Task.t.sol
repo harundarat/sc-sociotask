@@ -58,20 +58,14 @@ contract TaskTest is Test {
         // Deploy mock token
         mockToken = new MockERC20();
 
-        // Setup reward arrays
-        address[] memory rewardTokens = new address[](1);
-        rewardTokens[0] = address(mockToken);
-        uint256[] memory rewardAmounts = new uint256[](1);
-        rewardAmounts[0] = REWARD_AMOUNT;
-
         // Deploy task contract
         task = new Task(
             TASK_TITLE,
             OPERATOR,
             TASK_OWNER,
             CAMPAIGN_TARGET,
-            rewardTokens,
-            rewardAmounts
+            address(mockToken),
+            REWARD_AMOUNT
         );
 
         // Mint tokens to task contract for testing
@@ -90,7 +84,9 @@ contract TaskTest is Test {
             address taskOwner,
             uint256 campaignTarget,
             uint256 rewardClaimed,
-            uint256 timestamp
+            uint256 timestamp,
+            address rewardToken,
+            uint256 rewardAmount
         ) = task.getTaskInfo();
 
         // Assert
@@ -100,6 +96,8 @@ contract TaskTest is Test {
         assertEq(campaignTarget, CAMPAIGN_TARGET);
         assertEq(rewardClaimed, 0); // Initially no rewards claimed
         assertEq(timestamp, block.timestamp);
+        assertEq(rewardToken, address(mockToken));
+        assertEq(rewardAmount, REWARD_AMOUNT);
     }
 
     function test_SendReward_Success() public {
@@ -108,7 +106,7 @@ contract TaskTest is Test {
         uint256 initialBalance = mockToken.balanceOf(RECEIVER);
 
         // Act
-        task.sendReward(RECEIVER, address(mockToken));
+        task.sendReward(RECEIVER);
 
         // Assert
         assertEq(mockToken.balanceOf(RECEIVER), initialBalance + REWARD_AMOUNT);
@@ -125,35 +123,15 @@ contract TaskTest is Test {
                 TASK_OWNER
             )
         );
-        task.sendReward(RECEIVER, address(mockToken));
+        task.sendReward(RECEIVER);
     }
 
-    function test_SendReward_RevertWhen_RewardNotAvailable() public {
-        // Arrange
-        address invalidToken = address(0x999);
-        vm.prank(OPERATOR);
-
+    function test_Constructor_RevertWhen_InvalidRewardToken() public {
         // Act & Assert
         vm.expectRevert(
             abi.encodeWithSelector(
-                Task.Task__RewardNotAvailable.selector,
-                invalidToken
-            )
-        );
-        task.sendReward(RECEIVER, invalidToken);
-    }
-
-    function test_Constructor_RevertWhen_ArrayLengthMismatch() public {
-        // Arrange
-        address[] memory rewardTokens = new address[](2);
-        uint256[] memory rewardAmounts = new uint256[](1); // Length mismatch
-
-        // Act & Assert
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                Task.Task__RewardArrayLengthMismatch.selector,
-                2,
-                1
+                Task.Task__InvalidRewardToken.selector,
+                address(0)
             )
         );
         new Task(
@@ -161,8 +139,23 @@ contract TaskTest is Test {
             OPERATOR,
             TASK_OWNER,
             CAMPAIGN_TARGET,
-            rewardTokens,
-            rewardAmounts
+            address(0), // Invalid token address
+            REWARD_AMOUNT
+        );
+    }
+
+    function test_Constructor_RevertWhen_InvalidRewardAmount() public {
+        // Act & Assert
+        vm.expectRevert(
+            abi.encodeWithSelector(Task.Task__InvalidRewardAmount.selector, 0)
+        );
+        new Task(
+            TASK_TITLE,
+            OPERATOR,
+            TASK_OWNER,
+            CAMPAIGN_TARGET,
+            address(mockToken),
+            0 // Invalid reward amount
         );
     }
 
@@ -179,6 +172,14 @@ contract TaskTest is Test {
             block.timestamp
         );
 
-        task.sendReward(RECEIVER, address(mockToken));
+        task.sendReward(RECEIVER);
+    }
+
+    function test_GetRewardToken() public view {
+        assertEq(task.getRewardToken(), address(mockToken));
+    }
+
+    function test_GetRewardAmount() public view {
+        assertEq(task.getRewardAmount(), REWARD_AMOUNT);
     }
 }
