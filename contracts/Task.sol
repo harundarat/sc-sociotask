@@ -80,4 +80,19 @@ contract Task {
     function getTitle() external view returns (string memory) {
         return s_title;
     }
+
+    function getTaskInfo()
+        external
+        view
+        returns (string memory, address, address, uint256, uint256, uint256)
+    {
+        return (
+            s_title,
+            s_operator,
+            s_taskOwner,
+            s_campaignTarget,
+            s_rewardClaimed,
+            block.timestamp
+        );
+    }
 }
